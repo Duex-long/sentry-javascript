@@ -10,10 +10,12 @@ const { parseRequest } = Handlers;
 // purely for clarity
 type WrappedNextApiHandler = NextApiHandler;
 
-type AugmentedResponse = NextApiResponse & { __sentryTransaction?: Transaction };
+export type AugmentedNextApiResponse = NextApiResponse & {
+  __sentryTransaction?: Transaction;
+};
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
-export const withSentry = (handler: NextApiHandler): WrappedNextApiHandler => {
+export const withSentry = (origHandler: NextApiHandler): WrappedNextApiHandler => {
   // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
   return async (req, res) => {
     // first order of business: monkeypatch `res.end()` so that it will wait for us to send events to sentry before it
@@ -69,12 +71,12 @@ export const withSentry = (handler: NextApiHandler): WrappedNextApiHandler => {
 
           // save a link to the transaction on the response, so that even if there's an error (landing us outside of
           // the domain), we can still finish it (albeit possibly missing some scope data)
-          (res as AugmentedResponse).__sentryTransaction = transaction;
+          (res as AugmentedNextApiResponse).__sentryTransaction = transaction;
         }
       }
 
       try {
-        return await handler(req, res); // Call original handler
+        return await origHandler(req, res); // Call original handler
       } catch (e) {
         if (currentScope) {
           currentScope.addEventProcessor(event => {
@@ -94,12 +96,12 @@ export const withSentry = (handler: NextApiHandler): WrappedNextApiHandler => {
   };
 };
 
-type ResponseEndMethod = AugmentedResponse['end'];
-type WrappedResponseEndMethod = AugmentedResponse['end'];
+type ResponseEndMethod = AugmentedNextApiResponse['end'];
+type WrappedResponseEndMethod = AugmentedNextApiResponse['end'];
 
 function wrapEndMethod(origEnd: ResponseEndMethod): WrappedResponseEndMethod {
-  return async function newEnd(this: AugmentedResponse, ...args: unknown[]) {
     const transaction = this.__sentryTransaction;
+  return async function newEnd(this: AugmentedNextApiResponse, ...args: unknown[]) {
 
     if (transaction) {
       transaction.setHttpStatus(this.statusCode);
