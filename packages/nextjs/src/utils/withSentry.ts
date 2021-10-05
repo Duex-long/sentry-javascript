@@ -79,6 +79,8 @@ export const withSentry = (origHandler: NextApiHandler): WrappedNextApiHandler =
       try {
         return await origHandler(req, res); // Call original handler
       } catch (e) {
+        console.error(e);
+
         if (currentScope) {
           currentScope.addEventProcessor(event => {
             addExceptionMechanism(event, {
