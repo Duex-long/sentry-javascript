@@ -98,11 +98,11 @@ export const withSentry = (origHandler: NextApiHandler): WrappedNextApiHandler =
         }
         console.log('about to call res.end() with the captured error');
         (res as AugmentedNextApiResponse).__sentryCapturedError = e;
-        res.end();
+        return res.end();
       }
     });
 
-    return await boundHandler();
+    return boundHandler();
   };
 };
 
@@ -137,13 +137,13 @@ function wrapEndMethod(origEnd: ResponseEndMethod): WrappedResponseEndMethod {
       logger.log('Done flushing events');
     } catch (e) {
       logger.log(`Error while flushing events:\n${e}`);
-    } finally {
-      if (capturedError) {
-        console.log('about to rethrow error');
-        throw capturedError;
-      }
-      console.log('about to call origEnd');
-      return origEnd.call(this, ...args);
     }
+
+    if (capturedError) {
+      console.log('about to rethrow error');
+      throw capturedError;
+    }
+    console.log('about to call origEnd');
+    return origEnd.call(this, ...args);
   };
 }
