@@ -12,6 +12,7 @@ type WrappedNextApiHandler = NextApiHandler;
 
 export type AugmentedNextApiResponse = NextApiResponse & {
   __sentryTransaction?: Transaction;
+  __sentryCapturedError?: unknown;
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
@@ -89,6 +90,7 @@ export const withSentry = (origHandler: NextApiHandler): WrappedNextApiHandler =
           captureException(e);
         }
         throw e;
+        (res as AugmentedNextApiResponse).__sentryCapturedError = e;
       }
     });
 
@@ -100,8 +102,8 @@ type ResponseEndMethod = AugmentedNextApiResponse['end'];
 type WrappedResponseEndMethod = AugmentedNextApiResponse['end'];
 
 function wrapEndMethod(origEnd: ResponseEndMethod): WrappedResponseEndMethod {
-    const transaction = this.__sentryTransaction;
   return async function newEnd(this: AugmentedNextApiResponse, ...args: unknown[]) {
+    const { __sentryTransaction: transaction, __sentryCapturedError: capturedError } = this;
 
     if (transaction) {
       transaction.setHttpStatus(this.statusCode);
