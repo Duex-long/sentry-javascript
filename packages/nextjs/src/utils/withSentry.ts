@@ -77,20 +77,26 @@ export const withSentry = (origHandler: NextApiHandler): WrappedNextApiHandler =
       }
 
       try {
+        console.log('about to call handler');
         return await origHandler(req, res); // Call original handler
       } catch (e) {
+        console.log('in catch right after calling handler');
+
         console.error(e);
 
         if (currentScope) {
           currentScope.addEventProcessor(event => {
+            console.log('in event processor adding exception mechanism');
             addExceptionMechanism(event, {
               mechanism: 'withSentry',
               handled: false,
             });
             return event;
           });
+          console.log('about to capture the error');
           captureException(e);
         }
+        console.log('about to call res.end() with the captured error');
         (res as AugmentedNextApiResponse).__sentryCapturedError = e;
         res.end();
       }
@@ -104,7 +110,9 @@ type ResponseEndMethod = AugmentedNextApiResponse['end'];
 type WrappedResponseEndMethod = AugmentedNextApiResponse['end'];
 
 function wrapEndMethod(origEnd: ResponseEndMethod): WrappedResponseEndMethod {
+  console.log('wrapping end method');
   return async function newEnd(this: AugmentedNextApiResponse, ...args: unknown[]) {
+    console.log('in newEnd');
     const { __sentryTransaction: transaction, __sentryCapturedError: capturedError } = this;
 
     if (transaction) {
