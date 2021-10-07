@@ -1,28 +1,19 @@
 import { Hub, makeMain } from '@sentry/hub';
-import { NodeClient } from '@sentry/node';
+import * as Sentry from '@sentry/node';
 import { logger } from '@sentry/utils';
 import { NextApiRequest } from 'next';
 
 import { AugmentedNextApiResponse, withSentry } from '../../src/utils/withSentry';
 
 const loggerSpy = jest.spyOn(logger, 'log');
-let captureExceptionSpy: jest.Mock;
-
-// Prevent captureException from creating and leaving an open handle after test already finished
-jest.mock('@sentry/node', () => {
-  const actual = jest.requireActual('@sentry/node');
-  // Mocks are hoisted, thus we need to instentiate a variable here
-  captureExceptionSpy = jest.fn();
-  return {
-    ...actual,
-    captureException: captureExceptionSpy,
-  };
-});
+const captureExceptionSpy = jest.spyOn(Sentry, 'captureException');
 
 describe('withSentry', () => {
   it('flushes events before rethrowing error', async () => {
     const hub = new Hub(
-      new NodeClient({ dsn: 'https://dogsarebadatkeepingsecrets@squirrelchasers.ingest.sentry.io/12312012' }),
+      new Sentry.NodeClient({
+        dsn: 'https://dogsarebadatkeepingsecrets@squirrelchasers.ingest.sentry.io/12312012',
+      }),
     );
     makeMain(hub);
     const req = { url: 'http://dogs.are.great' } as NextApiRequest;
